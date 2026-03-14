@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Result &middot; BloodGuard AI</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <style>
+    :root{
+      --bg:#f4f6fb;--surface:#ffffff;--surface2:#f9fafb;
+      --border:#e2e6ef;--border-hi:#cbd1e0;
+      --indigo:#6366f1;--indigo-l:#818cf8;
+      --teal:#0d9488;--teal-l:#14b8a6;
+      --text:#1e293b;--heading:#0f172a;--muted:#374151;--dim:#64748b;
+      --red:#ef4444;--amber:#f59e0b;--green:#16a34a;--green-l:#22c55e;
+      --radius:14px;
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html{scroll-behavior:smooth}
+    body{
+      font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+      background:var(--bg);color:var(--text);min-height:100vh;
+      display:flex;flex-direction:column;
+    }
+    body::before{
+      content:'';position:fixed;inset:0;z-index:-2;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Ccircle cx='32' cy='32' r='12' fill='none' stroke='%236366f1' stroke-width='1'/%3E%3Ccircle cx='32' cy='32' r='5' fill='none' stroke='%236366f1' stroke-width='.5'/%3E%3C/svg%3E");
+      background-size:64px 64px;opacity:.04;
+      animation:bgDrift 18s linear infinite;
+    }
+    @keyframes bgDrift{from{background-position:0 0}to{background-position:64px 64px}}
+
+    /* ── BACKGROUND BLOBS ─────────────────────────────── */
+    .bg-blobs{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none}
+    .blob{position:absolute;border-radius:50%;filter:blur(100px);opacity:.07}
+    .blob-1{width:520px;height:520px;background:#6366f1;top:-140px;left:-120px;animation:driftA 20s ease-in-out infinite alternate}
+    .blob-2{width:420px;height:420px;background:#0d9488;bottom:-100px;right:-100px;animation:driftB 25s ease-in-out infinite alternate}
+    .blob-3{width:320px;height:320px;background:#818cf8;top:45%;left:55%;animation:driftC 30s ease-in-out infinite alternate}
+    @keyframes driftA{from{transform:translate(0,0) scale(1)}to{transform:translate(100px,70px) scale(1.12)}}
+    @keyframes driftB{from{transform:translate(0,0) scale(1)}to{transform:translate(-90px,-60px) scale(1.1)}}
+    @keyframes driftC{from{transform:translate(-50%,-50%) scale(1)}to{transform:translate(-38%,-62%) scale(1.18)}}
+
+    /* ── CELLS CANVAS ─────────────────────────────────── */
+    #cells-canvas{position:fixed;inset:0;z-index:0;pointer-events:none}
+    main,footer{position:relative;z-index:1}
+
+    /* ── NAV ─────────────── */
+    nav{
+      display:flex;align-items:center;gap:.7rem;
+      padding:1rem 2rem;border-bottom:1px solid var(--border);
+      background:rgba(255,255,255,.82);backdrop-filter:blur(12px);
+      position:sticky;top:0;z-index:50;
+    }
+    .logo{
+      width:36px;height:36px;border-radius:10px;
+      background:linear-gradient(135deg,var(--indigo),var(--teal));
+      display:flex;align-items:center;justify-content:center;
+      font-weight:900;font-size:1.1rem;color:#fff;
+    }
+    nav h2{font-size:1rem;font-weight:700;color:var(--heading)}
+    .nav-back{
+      margin-left:auto;padding:.45rem 1rem;border-radius:8px;
+      border:1px solid var(--border);background:transparent;
+      color:var(--muted);font-size:.82rem;cursor:pointer;
+      text-decoration:none;transition:border-color .2s,color .2s;
+    }
+    .nav-back:hover{border-color:var(--indigo);color:var(--indigo)}
+
+    /* ── LAYOUT ──────────── */
+    main{flex:1;width:100%;max-width:960px;margin:0 auto;padding:2rem 1.5rem 4rem}
+
+    /* ── SECTION TITLES ──── */
+    .sec-title{
+      font-size:.72rem;text-transform:uppercase;letter-spacing:.12em;
+      color:var(--muted);margin-bottom:.8rem;display:flex;align-items:center;gap:.5rem;
+    }
+    .sec-title::after{content:'';flex:1;height:1px;background:var(--border)}
+
+    /* ── TOP CARD ─────────── */
+    .top-card{
+      background:var(--surface);border:1px solid var(--border);
+      border-radius:var(--radius);padding:2rem;
+      display:flex;align-items:center;gap:2rem;flex-wrap:wrap;
+      animation:fadeUp .5s ease both;
+      position:relative;overflow:hidden;
+      box-shadow:0 4px 24px rgba(0,0,0,.04);
+    }
+    .top-card::before{
+      content:'';position:absolute;top:0;left:0;right:0;height:3px;
+      background:linear-gradient(90deg,var(--accent-color),transparent);
+    }
+    .tc-badge{
+      display:inline-block;font-size:.68rem;font-weight:700;
+      letter-spacing:.08em;text-transform:uppercase;
+      padding:.3rem .85rem;border-radius:999px;
+    }
+    .tc-badge.benign{background:#f0fdf4;color:var(--green);border:1px solid #bbf7d0}
+    .tc-badge.malignant{background:#fef2f2;color:var(--red);border:1px solid #fecaca}
+    .tc-label{font-size:1.5rem;font-weight:800;color:var(--heading);margin:.5rem 0 .15rem}
+    .tc-full{font-size:.85rem;color:var(--muted)}
+    .tc-conf{
+      margin-left:auto;text-align:center;
+      min-width:110px;
+    }
+    .tc-conf-val{
+      font-size:2.6rem;font-weight:800;
+      background:linear-gradient(135deg,var(--indigo),var(--teal));
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+      line-height:1;
+    }
+    .tc-conf-lbl{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-top:.25rem}
+
+    /* ── TWO-COL GRID ────── */
+    .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1.2rem;margin-top:1.6rem}
+    @media(max-width:700px){.grid-2{grid-template-columns:1fr}}
+
+    /* ── CARD BASE ────────── */
+    .card{
+      background:var(--surface);border:1px solid var(--border);
+      border-radius:var(--radius);padding:1.5rem;
+      box-shadow:0 2px 10px rgba(0,0,0,.03);
+    }
+
+    /* ── CHART CARDS ─────── */
+    .chart-wrap{position:relative;max-height:280px;display:flex;align-items:center;justify-content:center}
+    .chart-wrap canvas{max-height:260px!important}
+
+    /* ── BAR PROB LIST ────── */
+    .prob-list{display:flex;flex-direction:column;gap:.7rem;justify-content:center;height:100%}
+    .prob-row .row-hdr{display:flex;justify-content:space-between;font-size:.8rem;margin-bottom:.25rem}
+    .prob-row .name{color:var(--muted)}.prob-row .pct{color:var(--heading);font-weight:600}
+    .bar-bg{height:8px;background:var(--bg);border-radius:99px;overflow:hidden}
+    .bar-fill{height:100%;border-radius:99px;width:0;transition:width 1s cubic-bezier(.22,1,.36,1)}
+    .bar-fill.top{background:linear-gradient(90deg,var(--indigo),var(--teal))}
+    .bar-fill.other{background:var(--border-hi)}
+
+    /* ── SEVERITY CARD ────── */
+    .sev-grid{display:grid;grid-template-columns:auto 1fr;gap:.7rem 1.2rem;align-items:start}
+    .sev-label{font-size:.78rem;color:var(--muted);text-align:right;padding-top:.1rem}
+    .sev-val{font-size:.88rem;font-weight:600;color:var(--heading)}
+    .sev-meter{display:flex;gap:4px;margin-top:2px}
+    .sev-dot{width:24px;height:7px;border-radius:99px;background:var(--border)}
+    .sev-dot.on-1{background:var(--green-l)} .sev-dot.on-2{background:#84cc16}
+    .sev-dot.on-3{background:var(--amber)} .sev-dot.on-4{background:#f97316}
+    .sev-dot.on-5{background:var(--red)}
+    .urgency-tag{
+      display:inline-block;padding:.25rem .7rem;border-radius:8px;
+      font-size:.78rem;font-weight:600;margin-top:.3rem;
+    }
+
+    /* ── LIST CARDS ───────── */
+    .list-card ul{list-style:none;display:flex;flex-direction:column;gap:.55rem}
+    .list-card li{
+      font-size:.85rem;color:var(--muted);line-height:1.55;
+      display:flex;align-items:flex-start;gap:.6rem;
+    }
+    .list-card li::before{
+      content:'';flex-shrink:0;width:6px;height:6px;border-radius:50%;
+      margin-top:7px;
+    }
+    .sym-list li::before{background:var(--amber)}
+    .sug-list li::before{background:var(--teal)}
+
+    /* ── ABOUT BOX ────────── */
+    .about-box{
+      margin-top:1.6rem;padding:1.2rem 1.5rem;border-radius:var(--radius);
+      background:var(--surface);border:1px solid var(--border);
+      font-size:.85rem;color:var(--muted);line-height:1.65;
+      box-shadow:0 2px 10px rgba(0,0,0,.03);
+    }
+
+    /* ── BACK BUTTON ─────── */
+    .bottom-actions{text-align:center;margin-top:2rem;animation:fadeUp .5s .6s ease both}
+    .btn-back{
+      display:inline-flex;align-items:center;gap:.5rem;
+      padding:.75rem 2rem;border-radius:12px;
+      background:linear-gradient(135deg,var(--indigo),var(--teal));
+      color:#fff;font-size:.95rem;font-weight:700;text-decoration:none;
+      border:none;cursor:pointer;
+      transition:opacity .2s,transform .15s;
+      box-shadow:0 4px 16px rgba(99,102,241,.18);
+    }
+    .btn-back:hover{opacity:.9;transform:translateY(-1px)}
+
+    /* ── DISCLAIMER ────────── */
+    .disclaimer{
+      margin-top:2.5rem;padding:1rem 1.3rem;border-radius:12px;
+      background:#fffbeb;border:1px solid #fef3c7;
+      font-size:.78rem;color:#92400e;line-height:1.6;text-align:center;
+    }
+
+    /* ── ANIMATIONS ────────── */
+    @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+    .anim{opacity:0;animation:fadeUp .5s ease both}
+    .d1{animation-delay:.1s}.d2{animation-delay:.2s}.d3{animation-delay:.3s}
+    .d4{animation-delay:.4s}.d5{animation-delay:.5s}
+
+    /* ── RESPONSIVE ────────── */
+    @media(max-width:700px){
+      nav{padding:.8rem 1rem}
+      main{padding:1.5rem 1rem 3rem}
+      .top-card{padding:1.3rem;gap:1rem}
+      .tc-label{font-size:1.2rem}
+      .tc-conf{margin-left:0;margin-top:.5rem}
+      .tc-conf-val{font-size:2rem}
+      .card{padding:1.2rem}
+    }
+    @media(max-width:480px){
+      .tc-conf{width:100%}
+    }
+  </style>
+</head>
+<body>
+<div class="bg-blobs">
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+  <div class="blob blob-3"></div>
+</div>
+<canvas id="cells-canvas"></canvas>
+
+<!-- NAV -->
+<nav>
+  <div class="logo">B</div>
+  <h2>BloodGuard AI</h2>
+  <a href="/" class="nav-back">&larr; New Analysis</a>
+</nav>
+
+<main>
+
+<!-- Hidden data bridge for JS (avoids Jinja in <script>) -->
+<script id="app-data" type="application/json">{{ all_probs_json | safe }}</script>
+<meta name="accent-color" content="{{ info.color }}">
+
+<!-- ── TOP PREDICTION CARD ──────────────────────────────────────────────── -->
+<div class="top-card">
+  <div>
+    <span class="tc-badge {{ 'benign' if is_benign else 'malignant' }}">
+      {{ 'Benign' if is_benign else 'Malignant' }}
+    </span>
+    <div class="tc-label">{{ label }}</div>
+    <div class="tc-full">{{ info.full_name }}</div>
+  </div>
+  <div class="tc-conf">
+    <div class="tc-conf-val">{{ confidence }}%</div>
+    <div class="tc-conf-lbl">Confidence</div>
+  </div>
+</div>
+
+<!-- ── CHARTS ROW ───────────────────────────────────────────────────────── -->
+<div class="grid-2 anim d1">
+  <!-- Donut -->
+  <div class="card">
+    <p class="sec-title">Probability Distribution</p>
+    <div class="chart-wrap">
+      <canvas id="donutChart"></canvas>
+    </div>
+  </div>
+  <!-- Bars -->
+  <div class="card">
+    <p class="sec-title">Class Probabilities</p>
+    <div class="prob-list" id="prob-bars">
+      {% for p in all_probs %}
+      <div class="prob-row">
+        <div class="row-hdr">
+          <span class="name">{{ p.label }}</span>
+          <span class="pct">{{ p.prob }}%</span>
+        </div>
+        <div class="bar-bg">
+          <div class="bar-fill {{ 'top' if p.is_top else 'other' }}" data-width="{{ p.prob }}"></div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- ── SEVERITY & URGENCY ───────────────────────────────────────────────── -->
+<div class="grid-2 anim d2">
+  <div class="card">
+    <p class="sec-title">Severity Assessment</p>
+    <div class="sev-grid">
+      <span class="sev-label">Stage</span>
+      <span class="sev-val">{{ info.stage }}</span>
+
+      <span class="sev-label">Severity</span>
+      <div>
+        <span class="sev-val">{{ info.severity }}</span>
+        <div class="sev-meter">
+          {% for i in range(1, 6) %}
+          <div class="sev-dot {{ 'on-' ~ i if i <= info.severity_level else '' }}"></div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <span class="sev-label">Urgency</span>
+      <div>
+        <span class="urgency-tag" data-color="{{ info.color }}">
+          {{ info.urgency }}
+        </span>
+        <div style="font-size:.8rem;color:var(--muted);margin-top:.4rem;line-height:1.5">
+          {{ info.urgency_desc }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Horizontal bar chart -->
+  <div class="card">
+    <p class="sec-title">Comparative View</p>
+    <div class="chart-wrap">
+      <canvas id="barChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- ── SYMPTOMS ─────────────────────────────────────────────────────────── -->
+<div class="anim d3" style="margin-top:1.6rem">
+  <div class="card list-card">
+    <p class="sec-title">Likely Symptoms</p>
+    <ul class="sym-list">
+      {% for s in info.symptoms %}
+      <li>{{ s }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+
+<!-- ── SUGGESTIONS ──────────────────────────────────────────────────────── -->
+<div class="anim d4" style="margin-top:1.2rem">
+  <div class="card list-card">
+    <p class="sec-title">Medical Recommendations</p>
+    <ul class="sug-list">
+      {% for s in info.suggestions %}
+      <li>{{ s }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+
+<!-- ── ABOUT ────────────────────────────────────────────────────────────── -->
+<div class="about-box anim d5">
+  <strong style="color:var(--heading)">About this classification:</strong><br/>
+  {{ info.about }}
+</div>
+
+<!-- ── ACTIONS ──────────────────────────────────────────────────────────── -->
+<div class="bottom-actions">
+  <a href="/" class="btn-back">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+    Analyse Another Image
+  </a>
+</div>
+
+<!-- ── DISCLAIMER ──────────────────────────────────────────────────────── -->
+<div class="disclaimer anim d5">
+  <strong>Disclaimer:</strong> This AI tool is for research and educational purposes only. It does not provide
+  medical diagnosis. Results should be validated by qualified healthcare professionals through appropriate
+  clinical and laboratory procedures before any medical decisions are made.
+</div>
+
+</main>
+
+<script>
+  // ── Data from hidden bridge ──
+  const allProbs = JSON.parse(document.getElementById('app-data').textContent);
+  const accentColor = document.querySelector('meta[name="accent-color"]').content;
+
+  // ── Apply accent color as CSS variable ──
+  document.querySelector('.top-card').style.setProperty('--accent-color', accentColor);
+
+  // ── Style urgency tag dynamically ──
+  document.querySelectorAll('.urgency-tag[data-color]').forEach(el => {
+    const c = el.dataset.color;
+    el.style.background = c + '18';
+    el.style.color = c;
+    el.style.border = '1px solid ' + c + '44';
+  });
+
+  // ── Palette ──
+  const COLORS = ['#6366f1','#0d9488','#f59e0b','#818cf8'];
+  const labels  = allProbs.map(p => p.label.replace('[Malignant] ',''));
+  const values  = allProbs.map(p => p.prob);
+  const bgCols  = allProbs.map((p, i) => p.is_top ? '#6366f1' : COLORS[i % COLORS.length] + '44');
+  const bdCols  = allProbs.map((p, i) => p.is_top ? '#6366f1' : COLORS[i % COLORS.length]);
+
+  // ── Donut Chart ──
+  new Chart(document.getElementById('donutChart'), {
+    type: 'doughnut',
+    data: {
+      labels: labels,
+      datasets: [{
+        data: values,
+        backgroundColor: bgCols,
+        borderColor: bdCols,
+        borderWidth: 2,
+        hoverOffset: 8,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      cutout: '62%',
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { color: '#64748b', font: { size: 11 }, padding: 14, usePointStyle: true, pointStyleWidth: 8 }
+        },
+        tooltip: {
+          backgroundColor: '#ffffff',
+          titleColor: '#1e293b',
+          bodyColor: '#64748b',
+          borderColor: '#e2e6ef',
+          borderWidth: 1,
+          cornerRadius: 8,
+          callbacks: { label: ctx => ' ' + ctx.parsed + '%' }
+        }
+      },
+      animation: { animateRotate: true, duration: 1200, easing: 'easeOutQuart' }
+    }
+  });
+
+  // ── Bar Chart ──
+  new Chart(document.getElementById('barChart'), {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        data: values,
+        backgroundColor: bgCols,
+        borderColor: bdCols,
+        borderWidth: 1,
+        borderRadius: 6,
+        barPercentage: .65,
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#ffffff',
+          titleColor: '#1e293b',
+          bodyColor: '#64748b',
+          borderColor: '#e2e6ef',
+          borderWidth: 1,
+          cornerRadius: 8,
+          callbacks: { label: ctx => ' ' + ctx.parsed.x + '%' }
+        }
+      },
+      scales: {
+        x: { max:100, grid:{ color:'#e2e6ef44' }, ticks:{ color:'#64748b', font:{ size:11 }, callback: v => v+'%' }},
+        y: { grid:{ display:false }, ticks:{ color:'#64748b', font:{ size:11 } }}
+      },
+      animation: { duration: 1200, easing: 'easeOutQuart' }
+    }
+  });
+
+  // ── Animate probability bars ──
+  setTimeout(() => {
+    document.querySelectorAll('.bar-fill').forEach(bar => {
+      bar.style.width = bar.dataset.width + '%';
+    });
+  }, 200);
+</script>
+
+<script>
+(function(){
+  const canvas = document.getElementById('cells-canvas');
+  const ctx    = canvas.getContext('2d');
+  function resize(){ canvas.width = innerWidth; canvas.height = innerHeight; }
+  resize();
+  window.addEventListener('resize', resize);
+  let mx = innerWidth/2, my = innerHeight/2;
+  document.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; });
+  const PAL = { rbc:'#ef4444', wbc:'#6366f1', plt:'#0d9488' };
+  const REPEL = 110, DRAG = 0.994, BOUNCE = 0.45;
+  class Cell {
+    constructor(type){
+      this.type  = type; this.color = PAL[type];
+      this.x     = Math.random()*innerWidth; this.y = Math.random()*innerHeight;
+      this.size  = type==='plt' ? 5+Math.random()*7 : type==='rbc' ? 15+Math.random()*13 : 18+Math.random()*14;
+      this.opacity = 0.22+Math.random()*0.2;
+      this.vx    = (Math.random()-.5)*0.4; this.vy = (Math.random()-.5)*0.4;
+      this.rot   = Math.random()*Math.PI*2; this.rotSpd = (Math.random()-.5)*0.014;
+      this.gran  = Array.from({length:3},()=>({x:(Math.random()-.5)*this.size*.8,y:(Math.random()-.5)*this.size*.8}));
+    }
+    update(){
+      this.vx *= DRAG; this.vy *= DRAG;
+      const dx=this.x-mx, dy=this.y-my, d=Math.sqrt(dx*dx+dy*dy);
+      if(d < REPEL && d > 1){ const f=((REPEL-d)/REPEL)*0.4; this.vx+=(dx/d)*f; this.vy+=(dy/d)*f; }
+      const spd=Math.sqrt(this.vx*this.vx+this.vy*this.vy);
+      if(spd>6){ this.vx=this.vx/spd*6; this.vy=this.vy/spd*6; }
+      this.x+=this.vx; this.y+=this.vy;
+      const p=this.size;
+      if(this.x<p){ this.x=p; this.vx*=-BOUNCE; }
+      if(this.x>innerWidth-p){ this.x=innerWidth-p; this.vx*=-BOUNCE; }
+      if(this.y<p){ this.y=p; this.vy*=-BOUNCE; }
+      if(this.y>innerHeight-p){ this.y=innerHeight-p; this.vy*=-BOUNCE; }
+      this.rot+=this.rotSpd;
+    }
+    draw(ctx){
+      ctx.save(); ctx.translate(this.x,this.y); ctx.rotate(this.rot); ctx.globalAlpha=this.opacity;
+      this['_'+this.type](ctx); ctx.restore();
+    }
+    _rbc(ctx){
+      const r=this.size; ctx.scale(1,0.52);
+      ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.strokeStyle=this.color; ctx.lineWidth=1.8; ctx.stroke();
+      ctx.fillStyle=this.color; ctx.globalAlpha=this.opacity*.18; ctx.fill(); ctx.globalAlpha=this.opacity;
+      ctx.beginPath(); ctx.arc(0,0,r*.42,0,Math.PI*2); ctx.strokeStyle=this.color; ctx.lineWidth=1; ctx.stroke();
+    }
+    _wbc(ctx){
+      const r=this.size,n=8; ctx.beginPath();
+      for(let i=0;i<n;i++){const a=(i/n)*Math.PI*2,ir=r*(.76+.24*Math.sin(a*2.4));i===0?ctx.moveTo(Math.cos(a)*ir,Math.sin(a)*ir):ctx.lineTo(Math.cos(a)*ir,Math.sin(a)*ir);}
+      ctx.closePath(); ctx.strokeStyle=this.color; ctx.lineWidth=1.8; ctx.stroke();
+      ctx.fillStyle=this.color; ctx.globalAlpha=this.opacity*.14; ctx.fill(); ctx.globalAlpha=this.opacity;
+      [[-.2,0,.22],[.18,-.1,.18]].forEach(([nx,ny,nr])=>{ctx.beginPath();ctx.arc(nx*r,ny*r,nr*r,0,Math.PI*2);ctx.fillStyle=this.color;ctx.globalAlpha=this.opacity*.5;ctx.fill();ctx.globalAlpha=this.opacity;});
+    }
+    _plt(ctx){
+      const r=this.size; ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.strokeStyle=this.color; ctx.lineWidth=1.2; ctx.stroke();
+      ctx.fillStyle=this.color; ctx.globalAlpha=this.opacity*.35; ctx.fill(); ctx.globalAlpha=this.opacity;
+      this.gran.forEach(g=>{ctx.beginPath();ctx.arc(g.x,g.y,r*.2,0,Math.PI*2);ctx.fillStyle=this.color;ctx.globalAlpha=this.opacity*.65;ctx.fill();ctx.globalAlpha=this.opacity;});
+    }
+  }
+  const cells=[...Array.from({length:12},()=>new Cell('rbc')),...Array.from({length:8},()=>new Cell('wbc')),...Array.from({length:10},()=>new Cell('plt'))];
+  (function loop(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    cells.forEach(c=>{c.update();c.draw(ctx);});
+    requestAnimationFrame(loop);
+  })();
+})();
+</script>
+</body>
+</html>
