@@ -10,6 +10,10 @@ from flask import Flask, request, render_template
 from PIL import Image
 import tensorflow as tf
 
+# Limit CPU threads to reduce memory pressure on constrained hosts
+tf.config.threading.set_intra_op_parallelism_threads(1)
+tf.config.threading.set_inter_op_parallelism_threads(1)
+
 app = Flask(__name__)
 
 # ── Config ──────────────────────────────────────────────────────────────────
