@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="drop" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f87171"/>
+      <stop offset="100%" stop-color="#b91c1c"/>
+    </linearGradient>
+  </defs>
+  <path d="M50 6 C33 26,10 46,10 64 C10 83,28 96,50 96 C72 96,90 83,90 64 C90 46,67 26,50 6Z" fill="url(#drop)"/>
+  <text x="50" y="76" text-anchor="middle" font-size="30" font-family="'Segoe UI',sans-serif" font-weight="700" fill="white" letter-spacing="1">AI</text>
+</svg>

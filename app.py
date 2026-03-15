@@ -190,6 +190,25 @@ def index():
     return render_template('index.html')
 
 
+@app.route('/robots.txt')
+def robots():
+    return (
+        "User-agent: *\nAllow: /\nDisallow: /predict\n"
+        "Sitemap: https://bloodguard-ai.onrender.com/sitemap.xml\n"
+    ), 200, {'Content-Type': 'text/plain'}
+
+
+@app.route('/sitemap.xml')
+def sitemap():
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+        '<url><loc>https://bloodguard-ai.onrender.com/</loc>'
+        '<changefreq>monthly</changefreq><priority>1.0</priority></url>'
+        '</urlset>'
+    ), 200, {'Content-Type': 'application/xml'}
+
+
 @app.route('/predict', methods=['POST'])
 def predict():
     if 'file' not in request.files:
