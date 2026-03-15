@@ -8,16 +8,12 @@ import json
 import numpy as np
 from flask import Flask, request, render_template
 from PIL import Image
-import tensorflow as tf
-
-# Limit CPU threads to reduce memory pressure on constrained hosts
-tf.config.threading.set_intra_op_parallelism_threads(1)
-tf.config.threading.set_inter_op_parallelism_threads(1)
+from ai_edge_litert.interpreter import Interpreter
 
 app = Flask(__name__)
 
 # ── Config ──────────────────────────────────────────────────────────────────
-MODEL_PATH  = os.path.join(os.path.dirname(__file__), 'my_blood_cancer_model.keras')
+MODEL_PATH  = os.path.join(os.path.dirname(__file__), 'model.tflite')
 IMAGE_SIZE  = 128
 LABELS      = ['Benign', '[Malignant] Pre-B', '[Malignant] early Pre-B', '[Malignant] Pro-B']
 ALLOWED_EXT = {'png', 'jpg', 'jpeg', 'bmp', 'tiff'}
@@ -161,16 +157,12 @@ MEDICAL_INFO = {
     },
 }
 
-# ── Load model (patch Keras 2 → 3 `quantization_config` incompatibility) ────
-print("Loading model \u2026")
-_orig_dense_init = tf.keras.layers.Dense.__init__
-
-def _compat_dense_init(self, *args, quantization_config=None, **kwargs):
-    _orig_dense_init(self, *args, **kwargs)
-
-tf.keras.layers.Dense.__init__ = _compat_dense_init
-model = tf.keras.models.load_model(MODEL_PATH, compile=False)
-tf.keras.layers.Dense.__init__ = _orig_dense_init
+# ── Load TFLite model ────────────────────────────────────────────────────────
+print("Loading model …")
+_interpreter = Interpreter(model_path=MODEL_PATH)
+_interpreter.allocate_tensors()
+_input_idx  = _interpreter.get_input_details()[0]['index']
+_output_idx = _interpreter.get_output_details()[0]['index']
 print("Model loaded.")
 
 
@@ -184,6 +176,12 @@ def preprocess(image: Image.Image) -> np.ndarray:
     image = image.resize((IMAGE_SIZE, IMAGE_SIZE), Image.Resampling.NEAREST)
     arr   = np.array(image, dtype=np.float32) / 255.0
     return np.expand_dims(arr, axis=0)
+
+
+def infer(tensor: np.ndarray) -> np.ndarray:
+    _interpreter.set_tensor(_input_idx, tensor)
+    _interpreter.invoke()
+    return _interpreter.get_tensor(_output_idx)[0]
 
 
 # ── Routes ───────────────────────────────────────────────────────────────────
@@ -208,7 +206,7 @@ def predict():
     try:
         image  = Image.open(file.stream)
         tensor = preprocess(image)
-        preds  = model.predict(tensor, verbose=0)[0]
+        preds  = infer(tensor)
 
         class_idx  = int(np.argmax(preds))
         label      = LABELS[class_idx]

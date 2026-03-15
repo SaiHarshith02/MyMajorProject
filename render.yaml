@@ -5,11 +5,4 @@ services:
     plan: free
     pythonVersion: "3.12.0"
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --timeout 300 --preload
-    envVars:
-      - key: TF_CPP_MIN_LOG_LEVEL
-        value: "3"
-      - key: TF_ENABLE_ONEDNN_OPTS
-        value: "0"
-      - key: TF_USE_LEGACY_KERAS
-        value: "1"
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --timeout 120
