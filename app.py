@@ -15,7 +15,7 @@ app = Flask(__name__)
 # ── Config ──────────────────────────────────────────────────────────────────
 MODEL_PATH  = os.path.join(os.path.dirname(__file__), 'model.tflite')
 IMAGE_SIZE  = 128
-LABELS      = ['[Malignant] early Pre-B', '[Malignant] Pre-B', '[Malignant] Pro-B', 'Benign']
+LABELS      = ['Benign', '[Malignant] Pre-B', '[Malignant] early Pre-B', '[Malignant] Pro-B']
 ALLOWED_EXT = {'png', 'jpg', 'jpeg', 'bmp', 'tiff'}
 
 # ── Medical information per class ────────────────────────────────────────────

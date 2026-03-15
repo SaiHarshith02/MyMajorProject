@@ -21,9 +21,8 @@ tf.keras.layers.Dense.__init__ = _compat
 model = tf.keras.models.load_model(MODEL_IN, compile=False)
 tf.keras.layers.Dense.__init__ = _orig
 
-print("Converting to TFLite with dynamic-range quantisation …")
+print("Converting to TFLite (float32, no quantisation) …")
 converter = tf.lite.TFLiteConverter.from_keras_model(model)
-converter.optimizations = [tf.lite.Optimize.DEFAULT]
 tflite_model = converter.convert()
 
 with open(MODEL_OUT, "wb") as f:
